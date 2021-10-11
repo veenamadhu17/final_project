@@ -40,6 +40,32 @@ enum class ViewMode {
     RayTracing = 1
 };
 
+//Phong Shading methods
+
+glm::vec3 diffuseOnly(const HitInfo& hitInfo, const glm::vec3& vertexPos, const glm::vec3& lightPos)
+{
+    float dotProd = glm::dot(hitInfo.normal, glm::normalize(lightPos - vertexPos));
+    if (dotProd < 0) {
+        return hitInfo.material.kd * 0.0f;
+    }
+    else {
+        return hitInfo.material.kd * dotProd;
+    }
+}
+
+glm::vec3 phongSpecularOnly(const HitInfo& hitInfo, const glm::vec3& vertexPos, const glm::vec3& lightPos, const glm::vec3& cameraPos)
+{
+    glm::vec3 lightDirection = glm::normalize(lightPos - vertexPos);
+    glm::vec3 viewVector = glm::normalize(cameraPos - vertexPos);
+    glm::vec3 reflectionVector = glm::normalize(2 * glm::dot(lightDirection, hitInfo.normal) * hitInfo.normal - lightDirection);
+    float angle = glm::dot(lightDirection, hitInfo.normal);
+    if (angle < 0) {
+        return glm::vec3(0, 0, 0);
+    }
+    else {
+        return hitInfo.material.ks * pow(glm::dot(viewVector, reflectionVector), hitInfo.material.shininess);
+    }
+}
 
 static glm::vec3 getFinalColor(const Scene& scene, const BoundingVolumeHierarchy& bvh, Ray ray)
 {
@@ -48,7 +74,9 @@ static glm::vec3 getFinalColor(const Scene& scene, const BoundingVolumeHierarchy
         // Draw a white debug ray if the ray hits.
         drawRay(ray, glm::vec3(1.0f));
         // Set the color of the pixel to white if the ray hits.
-        return glm::vec3(1.0f);
+        //return glm::vec3(1.0f);
+        return diffuseOnly(hitInfo, ray.origin + ray.t * ray.direction, std::get<PointLight>(scene.lights[0]).position) +
+            phongSpecularOnly(hitInfo, ray.origin + ray.t * ray.direction, std::get<PointLight>(scene.lights[0]).position, ray.origin);
     } else {
         // Draw a red debug ray if the ray missed.
         drawRay(ray, glm::vec3(1.0f, 0.0f, 0.0f));
@@ -65,18 +93,18 @@ static glm::vec3 getFinalColor(const Scene& scene, const BoundingVolumeHierarchy
     //
     //
     // The code to iterate over the lights thus looks like this:
-    // for (const auto& light : scene.lights) {
-    //     if (std::holds_alternative<PointLight>(light)) {
-    //         const PointLight pointLight = std::get<PointLight>(light);
-    //         // Perform your calculations for a point light.
-    //     } else if (std::holds_alternative<SegmentLight>(light)) {
-    //         const SegmentLight segmentLight = std::get<SegmentLight>(light);
-    //         // Perform your calculations for a segment light.
-    //     } else if (std::holds_alternative<ParallelogramLight>(light)) {
-    //         const ParallelogramLight parallelogramLight = std::get<ParallelogramLight>(light);
-    //         // Perform your calculations for a parallelogram light.
-    //     }
-    // }
+     for (const auto& light : scene.lights) {
+         if (std::holds_alternative<PointLight>(light)) {
+             const PointLight pointLight = std::get<PointLight>(light);
+             // Perform your calculations for a point light.
+         } else if (std::holds_alternative<SegmentLight>(light)) {
+             const SegmentLight segmentLight = std::get<SegmentLight>(light);
+             // Perform your calculations for a segment light.
+         } else if (std::holds_alternative<ParallelogramLight>(light)) {
+             const ParallelogramLight parallelogramLight = std::get<ParallelogramLight>(light);
+             // Perform your calculations for a parallelogram light.
+         }
+     }
     //
     // Regarding the soft shadows for **other** light sources **extra** feature:
     // To add a new light source, define your new light struct in scene.h and modify the Scene struct (also in scene.h)
